@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: analyst's workbook. Header, KPI strip, then two-column panels; each panel flips between chart, table and the SQL that produced it. */
+:root {
+  --page: #f4f5f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #7d7b75;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --line: rgba(11,11,11,0.10);
+  --accent: #2a78d6;
+  --code-bg: #eef1f5;
+  --code-kw: #1c5cab;
+  --code-str: #8a4b12;
+  --code-cm: #6f7a6a;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --font-ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0f0f0e; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #95938c;
+    --grid: #2c2c2a; --axis: #383835; --line: rgba(255,255,255,0.10); --accent: #3987e5;
+    --code-bg: #141a22; --code-kw: #86b6ef; --code-str: #e8a86b; --code-cm: #8c9688;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0f0f0e; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #95938c;
+  --grid: #2c2c2a; --axis: #383835; --line: rgba(255,255,255,0.10); --accent: #3987e5;
+  --code-bg: #141a22; --code-kw: #86b6ef; --code-str: #e8a86b; --code-cm: #8c9688;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.5 var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); line-height: 1.12; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
+.sub { margin: 0; max-width: 68ch; color: var(--ink-2); font-size: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--ink-2); }
+.meta a { color: var(--accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.meta a:hover { border-bottom-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 12px/1 var(--font-mono); padding: 6px 8px; border-radius: 4px; background: var(--code-bg); color: var(--ink-2); }
+section { display: grid; gap: 14px; }
+h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); padding-bottom: 8px; border-bottom: 1px solid var(--grid); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; }
+.kpi .label { font-size: 13px; color: var(--ink-2); }
+.kpi .value { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.panel.full { grid-column: 1 / -1; }
+.panel-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; flex-wrap: wrap; }
+.panel h3 { margin: 0; font-size: 16px; font-weight: 600; text-wrap: balance; }
+.insight { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 70ch; }
+.tabs { display: inline-flex; gap: 2px; background: var(--code-bg); padding: 2px; border-radius: 6px; }
+.tabs button { font: 500 12px/1 var(--font-ui); border: 0; background: transparent; color: var(--ink-2); padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.view { min-width: 0; }
+.chart-box { position: relative; width: 100%; }
+.table-box, .sql-box { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink-2); position: sticky; top: 0; background: var(--surface); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px 14px; font: 12.5px/1.55 var(--font-mono); color: var(--ink); white-space: pre; }
+.kw { color: var(--code-kw); font-weight: 500; } .str { color: var(--code-str); } .cm { color: var(--code-cm); font-style: italic; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--grid); padding-top: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DATA = /*__DATA__*/null;
+const charts = [];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pretty = c => c.replace(/_/g, " ").replace(/\bpct\b/i, "%").replace(/\bavg\b/i, "avg").replace(/^./, s => s.toUpperCase());
+const CUR = DATA.currency || "";
+
+function fmt(v, col, chart) {
+  if (v === null || v === undefined) return "–";
+  if (typeof v !== "number") return String(v);
+  const money = chart && chart.money && chart.money.includes(col);
+  const pct = /_pct$/i.test(col) || (chart && chart.pct && chart.pct.includes(col));
+  let s;
+  const a = Math.abs(v);
+  if (a >= 1e7 && money && CUR === "₹") s = (v / 1e7).toFixed(2) + " Cr";
+  else if (a >= 1e6) s = (v / 1e6).toFixed(a >= 1e8 ? 0 : 2) + "M";
+  else if (a >= 1e5) s = (v / 1e3).toFixed(0) + "K";
+  else if (a >= 1e4) s = (v / 1e3).toFixed(1) + "K";
+  else if (Number.isInteger(v)) s = v.toLocaleString("en-US");
+  else s = v.toLocaleString("en-US", { maximumFractionDigits: a < 10 ? 2 : 1 });
+  if (money) s = CUR + s;
+  if (pct) s = s + "%";
+  return s;
+}
+function fmtFull(v, col, chart) {
+  if (typeof v !== "number") return v === null ? "–" : String(v);
+  if (/(_id|_year|^year)$/i.test(col)) return String(v);
+  const money = chart && chart.money && chart.money.includes(col);
+  const pct = /_pct$/i.test(col) || (chart && chart.pct && chart.pct.includes(col));
+  const s = v.toLocaleString("en-US", { maximumFractionDigits: Number.isInteger(v) ? 0 : 2 });
+  return (money ? CUR : "") + s + (pct ? "%" : "");
+}
+
+function highlightSQL(sql) {
+  const kw = /\b(WITH|RECURSIVE|SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|JOIN|LEFT JOIN|INNER JOIN|ON|AS|AND|OR|NOT|IN|IS|NULL|CASE|WHEN|THEN|ELSE|END|DISTINCT|OVER|PARTITION BY|UNION ALL|UNION|DESC|ASC|BETWEEN|LIKE|CAST|ROUND|COUNT|SUM|AVG|MIN|MAX|NTILE|RANK|DENSE_RANK|ROW_NUMBER|LAG|LEAD|COALESCE|NULLIF|SUBSTR|INSTR|TRIM|REPLACE|LOWER|UPPER|LENGTH|REAL|INTEGER|TEXT|JULIANDAY|STRFTIME|DATE|PRINTF|IIF|EXISTS|FILTER)\b/g;
+  return sql.split("\n").map(line => {
+    const i = line.indexOf("--");
+    let code = i >= 0 ? line.slice(0, i) : line, cm = i >= 0 ? line.slice(i) : "";
+    code = esc(code).replace(/('[^']*')/g, '<span class="str">$1</span>');
+    code = code.replace(/(<span class="str">.*?<\/span>)|([^<]+)/g, (m, s, t) => s ? s : t.replace(kw, '<span class="kw">$1</span>'));
+    return code + (cm ? `<span class="cm">${esc(cm)}</span>` : "");
+  }).join("\n");
+}
+
+function tableHTML(p) {
+  const numCols = p.columns.map((c, i) => p.rows.some(r => typeof r[i] === "number"));
+  const head = p.columns.map((c, i) => `<th class="${numCols[i] ? "num" : ""}">${esc(pretty(c))}</th>`).join("");
+  const body = p.rows.slice(0, 200).map(r => "<tr>" + r.map((v, i) => `<td class="${numCols[i] ? "num" : ""}">${esc(fmtFull(v, p.columns[i], p.chart))}</td>`).join("") + "</tr>").join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderKPI(p) {
+  const row = p.rows[0] || [];
+  return (p.insight ? `<p class="insight">${esc(p.insight)}</p>` : "") + `<div class="kpis">${p.columns.map((c, i) => `<div class="kpi"><span class="label">${esc(pretty(c))}</span><span class="value">${esc(fmt(row[i], c, p.chart))}</span></div>`).join("")}</div>`;
+}
+
+function panelHTML(p, idx) {
+  const full = p.chart.w === "full" || p.chart.type === "table" ? " full" : "";
+  const hasChart = !["table"].includes(p.chart.type);
+  const ys = p.chart.y || [];
+  const legend = ys.length > 1 ? `<div class="legend">${ys.map((y, i) => `<span><i style="background:var(--s${i + 1})"></i>${esc(pretty(y))}</span>`).join("")}</div>` : "";
+  return `<article class="panel${full}" id="${esc(p.name)}">
+    <div class="panel-head"><h3>${esc(p.title)}</h3>
+      <div class="tabs" role="tablist">
+        ${hasChart ? `<button role="tab" aria-selected="true" data-v="chart">Chart</button>` : ""}
+        <button role="tab" aria-selected="${hasChart ? "false" : "true"}" data-v="table">Table</button>
+        <button role="tab" aria-selected="false" data-v="sql">SQL</button>
+      </div></div>
+    ${p.insight ? `<p class="insight">${esc(p.insight)}</p>` : ""}
+    ${hasChart ? `<div class="view" data-view="chart">${legend}<div class="chart-box" style="height:${chartHeight(p)}px"><canvas id="c${idx}" role="img" aria-label="${esc(p.title)}"></canvas></div></div>` : ""}
+    <div class="view table-box" data-view="table" ${hasChart ? "hidden" : ""}>${tableHTML(p)}</div>
+    <div class="view sql-box" data-view="sql" hidden><pre><code>${highlightSQL(p.sql)}</code></pre></div>
+  </article>`;
+}
+function chartHeight(p) {
+  if (p.chart.type === "hbar") return Math.max(180, p.rows.length * (p.chart.y.length > 1 ? 34 : 28) + 40);
+  return 280;
+}
+
+function build() {
+  const app = document.getElementById("app");
+  const d = DATA.dataset || {};
+  let html = `<header>
+    <span class="eyebrow">SQL portfolio project · ${esc(DATA.author || "")}</span>
+    <h1>${esc(DATA.title)}</h1>
+    <p class="sub">${esc(DATA.subtitle || "")}</p>
+    <div class="meta">
+      ${d.name ? `<span>Data: <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>${d.rows ? " · " + esc(d.rows) : ""}</span>` : ""}
+      ${DATA.repo ? `<span>Code: <a href="${esc(DATA.repo)}" target="_blank" rel="noopener">GitHub repository</a></span>` : ""}
+    </div>
+    ${DATA.stack ? `<div class="chips">${DATA.stack.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>` : ""}
+  </header>`;
+  const sections = [];
+  DATA.panels.forEach((p, i) => {
+    const name = p.section || "Analysis";
+    let s = sections.find(x => x.name === name);
+    if (!s) sections.push(s = { name, items: [] });
+    s.items.push([p, i]);
+  });
+  for (const s of sections) {
+    const kpis = s.items.filter(([p]) => p.chart.type === "kpi");
+    const rest = s.items.filter(([p]) => p.chart.type !== "kpi");
+    html += `<section><h2>${esc(s.name)}</h2>`;
+    html += kpis.map(([p]) => renderKPI(p)).join("");
+    // a section with an odd number of half-width panels lets the last one span the row
+    const half = rest.filter(([p]) => !(p.chart.w === "full" || p.chart.type === "table"));
+    if (half.length % 2 === 1) half[half.length - 1][0].chart.w = "full";
+    if (rest.length) html += `<div class="grid">${rest.map(([p, i]) => panelHTML(p, i)).join("")}</div>`;
+    html += `</section>`;
+  }
+  html += `<footer>Every number on this page comes from the SQL shown in each panel, run against SQLite. Built by ${esc(DATA.author || "")}.</footer>`;
+  app.innerHTML = html;
+  app.addEventListener("click", e => {
+    const b = e.target.closest(".tabs button"); if (!b) return;
+    const panel = b.closest(".panel");
+    panel.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b ? "true" : "false"));
+    panel.querySelectorAll(".view").forEach(v => v.hidden = v.dataset.view !== b.dataset.v);
+  });
+  drawCharts();
+}
+
+function drawCharts() {
+  if (!window.Chart) return;
+  charts.splice(0).forEach(c => c.destroy());
+  const ink2 = css("--ink-2"), muted = css("--muted"), grid = css("--grid"), axis = css("--axis"), surface = css("--surface");
+  const series = [css("--s1"), css("--s2"), css("--s3"), css("--s4")];
+  Chart.defaults.font.family = css("--font-ui");
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = muted;
+  DATA.panels.forEach((p, idx) => {
+    const el = document.getElementById("c" + idx); if (!el) return;
+    const t = p.chart.type, xi = p.columns.indexOf(p.chart.x);
+    const labels = p.rows.map(r => r[xi]);
+    const horiz = t === "hbar";
+    const datasets = (p.chart.y || []).map((y, k) => {
+      const yi = p.columns.indexOf(y);
+      const base = { label: pretty(y), data: p.rows.map(r => r[yi]), backgroundColor: series[k], borderColor: series[k] };
+      if (t === "line") return { ...base, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, pointBorderColor: surface, pointBorderWidth: 2, tension: 0, fill: (p.chart.y.length === 1) ? { target: "origin", above: series[k] + "1a" } : false };
+      return { ...base, borderWidth: 0, borderRadius: 4, borderSkipped: "start", maxBarThickness: 22, categoryPercentage: 0.8, barPercentage: 0.9 };
+    });
+    const valueAxis = { grid: { color: grid, drawTicks: false }, border: { display: false }, ticks: { color: muted, padding: 6, maxRotation: 0, autoSkipPadding: 14, callback: v => fmt(v, p.chart.y[0], p.chart) }, beginAtZero: t !== "line" || p.chart.zero === "yes" };
+    const catAxis = { grid: { display: false }, border: { color: axis }, ticks: { color: ink2, autoSkip: !horiz, autoSkipPadding: 10, maxRotation: 0, callback: function (v) { const l = String(this.getLabelForValue(v)); return l.length > 26 ? l.slice(0, 25) + "…" : l; } } };
+    charts.push(new Chart(el, {
+      type: t === "line" ? "line" : "bar",
+      data: { labels, datasets },
+      options: {
+        indexAxis: horiz ? "y" : "x", responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { display: false },
+          tooltip: { backgroundColor: css("--ink"), titleColor: surface, bodyColor: surface, padding: 10, cornerRadius: 6, displayColors: p.chart.y.length > 1,
+            callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.parsed[horiz ? "x" : "y"], p.chart.y[c.datasetIndex], p.chart)}` } } },
+        scales: horiz ? { x: valueAxis, y: catAxis } : { x: catAxis, y: valueAxis }
+      }
+    }));
+  });
+}
+
+build();
+const mq = window.matchMedia("(prefers-color-scheme: dark)");
+mq.addEventListener && mq.addEventListener("change", drawCharts);
+new MutationObserver(drawCharts).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
+</body>
+</html>

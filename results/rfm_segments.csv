@@ -1,0 +1,11 @@
+segment,customers,customer_share_pct,revenue,revenue_share_pct,avg_days_since_purchase,avg_orders,avg_spend
+Champions,635,14.7,4205868.0,50.9,6.0,12.2,6623.0
+Loyal customers,807,18.7,2299234.0,27.8,34.0,6.4,2849.0
+At risk,592,13.7,631125.0,7.6,151.0,2.9,1066.0
+Hibernating,1078,24.9,374710.0,4.5,219.0,1.1,348.0
+Potential loyalists,473,10.9,283723.0,3.4,17.0,2.0,600.0
+Cannot lose them,60,1.4,167092.0,2.0,133.0,8.4,2785.0
+Need attention,197,4.6,149185.0,1.8,52.0,2.3,757.0
+About to sleep,340,7.9,126582.0,1.5,53.0,1.1,372.0
+Promising,101,2.3,16519.0,0.2,23.0,1.0,164.0
+New customers,41,0.9,7159.0,0.1,8.0,1.0,175.0

@@ -1,0 +1,9 @@
+check_name,rows_affected,action
+Raw invoice lines loaded,541909,none
+No customer id (guest checkout),135080,excluded: cannot be tied to a customer
+Cancelled invoices (invoice number starts with C),9288,excluded
+"Zero or negative quantity or price (adjustments, damages)",11805,excluded
+"Non-product lines (postage, fees, manual, vouchers)",2950,excluded
+Exact duplicate lines,5268,kept one copy
+Sales later reversed by a matching cancellation,3920,excluded
+Clean sales lines,387230,final table

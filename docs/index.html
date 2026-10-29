@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Customer RFM Segmentation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: analyst's workbook. Header, KPI strip, then two-column panels; each panel flips between chart, table and the SQL that produced it. */
+:root {
+  --page: #f4f5f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #7d7b75;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --line: rgba(11,11,11,0.10);
+  --accent: #2a78d6;
+  --code-bg: #eef1f5;
+  --code-kw: #1c5cab;
+  --code-str: #8a4b12;
+  --code-cm: #6f7a6a;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --font-ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0f0f0e; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #95938c;
+    --grid: #2c2c2a; --axis: #383835; --line: rgba(255,255,255,0.10); --accent: #3987e5;
+    --code-bg: #141a22; --code-kw: #86b6ef; --code-str: #e8a86b; --code-cm: #8c9688;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0f0f0e; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #95938c;
+  --grid: #2c2c2a; --axis: #383835; --line: rgba(255,255,255,0.10); --accent: #3987e5;
+  --code-bg: #141a22; --code-kw: #86b6ef; --code-str: #e8a86b; --code-cm: #8c9688;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.5 var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); line-height: 1.12; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
+.sub { margin: 0; max-width: 68ch; color: var(--ink-2); font-size: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--ink-2); }
+.meta a { color: var(--accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.meta a:hover { border-bottom-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 12px/1 var(--font-mono); padding: 6px 8px; border-radius: 4px; background: var(--code-bg); color: var(--ink-2); }
+section { display: grid; gap: 14px; }
+h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); padding-bottom: 8px; border-bottom: 1px solid var(--grid); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; }
+.kpi .label { font-size: 13px; color: var(--ink-2); }
+.kpi .value { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.panel.full { grid-column: 1 / -1; }
+.panel-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; flex-wrap: wrap; }
+.panel h3 { margin: 0; font-size: 16px; font-weight: 600; text-wrap: balance; }
+.insight { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 70ch; }
+.tabs { display: inline-flex; gap: 2px; background: var(--code-bg); padding: 2px; border-radius: 6px; }
+.tabs button { font: 500 12px/1 var(--font-ui); border: 0; background: transparent; color: var(--ink-2); padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.view { min-width: 0; }
+.chart-box { position: relative; width: 100%; }
+.table-box, .sql-box { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink-2); position: sticky; top: 0; background: var(--surface); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 12px 14px; font: 12.5px/1.55 var(--font-mono); color: var(--ink); white-space: pre; }
+.kw { color: var(--code-kw); font-weight: 500; } .str { color: var(--code-str); } .cm { color: var(--code-cm); font-style: italic; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--grid); padding-top: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DATA = {"title": "Customer RFM Segmentation", "subtitle": "Who the best customers of a UK online gift retailer are, who is slipping away, and how well each month's new customers come back: RFM scoring, segments, cohort retention and revenue concentration, all in SQL.", "dataset": {"name": "Online Retail (UCI Machine Learning Repository)", "url": "https://archive.ics.uci.edu/dataset/352/online+retail", "rows": "541,909 invoice lines, Dec 2010 to Dec 2011"}, "author": "Malhar Patel", "repo": "https://github.com/malharpatel78/customer-rfm-segmentation-sql", "currency": "£", "stack": ["SQLite", "RFM with NTILE", "Cohort retention", "CTEs", "Window functions", "Chart.js"], "panels": [{"name": "overview", "section": "Business at a glance", "title": "Headline numbers", "insight": "£8.26M from 4,324 identifiable customers over 12 months. Two in three customers ordered more than once, and the average order is worth £453, consistent with a business that sells largely to small retailers.", "chart": {"type": "kpi", "money": ["revenue", "avg_order_value"]}, "sql": "SELECT ROUND(SUM(line_revenue), 0)                                          AS revenue,\n       COUNT(DISTINCT customer_id)                                          AS customers,\n       COUNT(DISTINCT invoice_no)                                           AS orders,\n       ROUND(SUM(line_revenue) / COUNT(DISTINCT invoice_no), 2)             AS avg_order_value,\n       (SELECT ROUND(100.0 * SUM(frequency > 1) / COUNT(*), 1) FROM customers) AS repeat_customer_pct,\n       COUNT(DISTINCT country)                                              AS countries\nFROM transactions;", "columns": ["revenue", "customers", "orders", "avg_order_value", "repeat_customer_pct", "countries"], "rows": [[8261197.0, 4324, 18247, 452.74, 65.2, 37]]}, {"name": "monthly_revenue", "section": "Business at a glance", "title": "Monthly revenue (Dec 2010 to Nov 2011)", "insight": "Revenue doubled from a February low of £436K to £1.12M in November, driven by the run-up to Christmas. September to November alone brought in 36% of the year's sales.", "chart": {"type": "line", "x": "month", "y": ["revenue"], "money": ["revenue"]}, "sql": "SELECT SUBSTR(invoice_date, 1, 7)        AS month,\n       ROUND(SUM(line_revenue), 0)       AS revenue,\n       COUNT(DISTINCT invoice_no)        AS orders,\n       COUNT(DISTINCT customer_id)       AS active_customers\nFROM transactions\nWHERE invoice_date < '2011-12-01'\nGROUP BY month\nORDER BY month;", "columns": ["month", "revenue", "orders", "active_customers"], "rows": [["2010-12", 553413.0, 1385, 883], ["2011-01", 453930.0, 972, 736], ["2011-02", 436239.0, 986, 755], ["2011-03", 569356.0, 1299, 968], ["2011-04", 447197.0, 1127, 848], ["2011-05", 649583.0, 1526, 1050], ["2011-06", 602524.0, 1374, 986], ["2011-07", 580011.0, 1313, 945], ["2011-08", 621376.0, 1262, 933], ["2011-09", 923761.0, 1724, 1252], ["2011-10", 960962.0, 1878, 1356], ["2011-11", 1119974.0, 2630, 1656]]}, {"name": "new_vs_returning", "section": "Business at a glance", "title": "Active customers each month: new vs returning", "insight": "Growth came from returning customers. New customers per month fell from about 400 in early 2011 to 170 in August, while returning customers rose from 322 in January to 1,334 in November.", "chart": {"type": "bar", "x": "month", "y": ["new_customers", "returning_customers"]}, "sql": "WITH monthly AS (\n    SELECT DISTINCT t.customer_id, SUBSTR(t.invoice_date, 1, 7) AS month,\n           SUBSTR(c.first_purchase, 1, 7) AS first_month\n    FROM transactions t\n    JOIN customers c ON c.customer_id = t.customer_id\n    WHERE t.invoice_date < '2011-12-01'\n)\nSELECT month,\n       SUM(month = first_month)  AS new_customers,\n       SUM(month <> first_month) AS returning_customers\nFROM monthly\nGROUP BY month\nORDER BY month;", "columns": ["month", "new_customers", "returning_customers"], "rows": [["2010-12", 883, 0], ["2011-01", 414, 322], ["2011-02", 381, 374], ["2011-03", 450, 518], ["2011-04", 300, 548], ["2011-05", 283, 767], ["2011-06", 242, 744], ["2011-07", 187, 758], ["2011-08", 169, 764], ["2011-09", 297, 955], ["2011-10", 356, 1000], ["2011-11", 322, 1334]]}, {"name": "rfm_segments", "section": "RFM segments", "title": "RFM segment summary", "insight": "Champions and loyal customers are a third of the base but bring in 79% of revenue. A quarter of customers are hibernating: mostly single-order customers who last bought about seven months ago on average.", "chart": {"type": "table", "money": ["revenue", "avg_spend"]}, "sql": "SELECT segment,\n       COUNT(*)                                                    AS customers,\n       ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1)          AS customer_share_pct,\n       ROUND(SUM(monetary), 0)                                     AS revenue,\n       ROUND(100.0 * SUM(monetary) / SUM(SUM(monetary)) OVER (), 1) AS revenue_share_pct,\n       ROUND(AVG(recency_days), 0)                                 AS avg_days_since_purchase,\n       ROUND(AVG(frequency), 1)                                    AS avg_orders,\n       ROUND(AVG(monetary), 0)                                     AS avg_spend\nFROM rfm\nGROUP BY segment\nORDER BY revenue DESC;", "columns": ["segment", "customers", "customer_share_pct", "revenue", "revenue_share_pct", "avg_days_since_purchase", "avg_orders", "avg_spend"], "rows": [["Champions", 635, 14.7, 4205868.0, 50.9, 6.0, 12.2, 6623.0], ["Loyal customers", 807, 18.7, 2299234.0, 27.8, 34.0, 6.4, 2849.0], ["At risk", 592, 13.7, 631125.0, 7.6, 151.0, 2.9, 1066.0], ["Hibernating", 1078, 24.9, 374710.0, 4.5, 219.0, 1.1, 348.0], ["Potential loyalists", 473, 10.9, 283723.0, 3.4, 17.0, 2.0, 600.0], ["Cannot lose them", 60, 1.4, 167092.0, 2.0, 133.0, 8.4, 2785.0], ["Need attention", 197, 4.6, 149185.0, 1.8, 52.0, 2.3, 757.0], ["About to sleep", 340, 7.9, 126582.0, 1.5, 53.0, 1.1, 372.0], ["Promising", 101, 2.3, 16519.0, 0.2, 23.0, 1.0, 164.0], ["New customers", 41, 0.9, 7159.0, 0.1, 8.0, 1.0, 175.0]]}, {"name": "segment_share", "section": "RFM segments", "title": "Share of customers vs share of revenue, by segment", "insight": "Champions are 15% of customers and 51% of revenue. At risk and Cannot lose them together hold another 9.6% of revenue that is drifting away.", "chart": {"type": "hbar", "x": "segment", "y": ["customer_share_pct", "revenue_share_pct"], "w": "full"}, "sql": "SELECT segment,\n       ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1)           AS customer_share_pct,\n       ROUND(100.0 * SUM(monetary) / SUM(SUM(monetary)) OVER (), 1) AS revenue_share_pct\nFROM rfm\nGROUP BY segment\nORDER BY revenue_share_pct DESC;", "columns": ["segment", "customer_share_pct", "revenue_share_pct"], "rows": [["Champions", 14.7, 50.9], ["Loyal customers", 18.7, 27.8], ["At risk", 13.7, 7.6], ["Hibernating", 24.9, 4.5], ["Potential loyalists", 10.9, 3.4], ["Cannot lose them", 1.4, 2.0], ["Need attention", 4.6, 1.8], ["About to sleep", 7.9, 1.5], ["Promising", 2.3, 0.2], ["New customers", 0.9, 0.1]]}, {"name": "rf_grid", "section": "RFM segments", "title": "Customers by recency score (rows) and frequency score (columns)", "insight": "The diagonal tells the story: frequent buyers are recent (441 customers score R5 F5) and one-time buyers are lapsed (392 score R1 F1).", "chart": {"type": "table"}, "sql": "SELECT 'R' || r_score        AS recency_score,\n       SUM(f_score = 1)      AS f1,\n       SUM(f_score = 2)      AS f2,\n       SUM(f_score = 3)      AS f3,\n       SUM(f_score = 4)      AS f4,\n       SUM(f_score = 5)      AS f5\nFROM rfm\nGROUP BY r_score\nORDER BY r_score DESC;", "columns": ["recency_score", "f1", "f2", "f3", "f4", "f5"], "rows": [["R5", 41, 59, 129, 194, 441], ["R4", 101, 111, 174, 238, 241], ["R3", 155, 185, 197, 206, 122], ["R2", 176, 221, 234, 184, 50], ["R1", 392, 289, 131, 43, 10]]}, {"name": "revenue_concentration", "section": "RFM segments", "title": "Share of revenue by customer spend quintile", "insight": "The top 20% of customers by spend generate 74% of revenue, close to the 80/20 rule. The bottom 40% generate 5%.", "chart": {"type": "bar", "x": "spend_quintile", "y": ["revenue_share_pct"]}, "sql": "WITH q AS (\n    SELECT monetary, NTILE(5) OVER (ORDER BY monetary DESC) AS quintile\n    FROM customers\n)\nSELECT CASE quintile WHEN 1 THEN 'Top 20%' WHEN 2 THEN '20-40%' WHEN 3 THEN '40-60%'\n                     WHEN 4 THEN '60-80%' ELSE 'Bottom 20%' END       AS spend_quintile,\n       COUNT(*)                                                      AS customers,\n       ROUND(SUM(monetary), 0)                                       AS revenue,\n       ROUND(100.0 * SUM(monetary) / SUM(SUM(monetary)) OVER (), 1)  AS revenue_share_pct\nFROM q\nGROUP BY quintile\nORDER BY quintile;", "columns": ["spend_quintile", "customers", "revenue", "revenue_share_pct"], "rows": [["Top 20%", 865, 6078787.0, 73.6], ["20-40%", 865, 1173891.0, 14.2], ["40-60%", 865, 577531.0, 7.0], ["60-80%", 865, 302205.0, 3.7], ["Bottom 20%", 864, 128783.0, 1.6]]}, {"name": "at_risk_customers", "section": "RFM segments", "title": "Win-back list: highest-spending customers in At risk and Cannot lose them", "insight": "This is the win-back list. The top 15 lapsed customers spent £122K between them, and several placed 8 to 34 orders before going quiet.", "chart": {"type": "table", "money": ["lifetime_spend"]}, "sql": "SELECT customer_id,\n       segment,\n       country,\n       frequency                 AS orders,\n       ROUND(monetary, 0)        AS lifetime_spend,\n       last_purchase,\n       recency_days              AS days_since_last_order\nFROM rfm\nWHERE segment IN ('At risk', 'Cannot lose them')\nORDER BY monetary DESC\nLIMIT 15;", "columns": ["customer_id", "segment", "country", "orders", "lifetime_spend", "last_purchase", "days_since_last_order"], "rows": [[15749, "At risk", "United Kingdom", 2, 24851.0, "2011-04-18", 236], [12409, "At risk", "Switzerland", 2, 11068.0, "2011-09-22", 79], [16180, "Cannot lose them", "United Kingdom", 8, 10254.0, "2011-08-31", 101], [13093, "Cannot lose them", "United Kingdom", 8, 7832.0, "2011-03-09", 276], [12435, "At risk", "Denmark", 2, 7830.0, "2011-09-21", 80], [12980, "Cannot lose them", "United Kingdom", 9, 7375.0, "2011-07-05", 158], [16745, "Cannot lose them", "United Kingdom", 17, 7181.0, "2011-09-14", 87], [13027, "Cannot lose them", "United Kingdom", 6, 6912.0, "2011-08-18", 114], [16182, "At risk", "United Kingdom", 4, 6618.0, "2011-09-28", 73], [15939, "Cannot lose them", "United Kingdom", 14, 6100.0, "2011-09-11", 90], [14101, "Cannot lose them", "United Kingdom", 6, 5977.0, "2011-09-27", 74], [16553, "Cannot lose them", "United Kingdom", 12, 5669.0, "2011-06-29", 164], [17061, "Cannot lose them", "United Kingdom", 11, 5116.0, "2011-09-27", 74], [17850, "Cannot lose them", "United Kingdom", 34, 5064.0, "2010-12-02", 373], [16984, "At risk", "United Kingdom", 2, 4404.0, "2011-09-12", 89]]}, {"name": "cohort_retention", "section": "Retention", "title": "Monthly cohort retention: % of each month's new customers who bought again N months later", "insight": "December 2010's cohort, the business's established customers, keeps 32% to 38% active each month. Customers acquired during 2011 settle at about 15% to 30%.", "chart": {"type": "table"}, "sql": "WITH first_month AS (\n    SELECT customer_id, SUBSTR(first_purchase, 1, 7) AS cohort FROM customers\n),\nactivity AS (\n    SELECT DISTINCT t.customer_id, f.cohort,\n           (CAST(SUBSTR(t.invoice_date, 1, 4) AS INTEGER) - CAST(SUBSTR(f.cohort, 1, 4) AS INTEGER)) * 12\n         + (CAST(SUBSTR(t.invoice_date, 6, 2) AS INTEGER) - CAST(SUBSTR(f.cohort, 6, 2) AS INTEGER)) AS month_number\n    FROM transactions t\n    JOIN first_month f ON f.customer_id = t.customer_id\n    WHERE t.invoice_date < '2011-12-01'\n),\nsizes AS (\n    SELECT cohort, COUNT(*) AS cohort_size FROM first_month GROUP BY cohort\n)\nSELECT a.cohort,\n       s.cohort_size,\n       CASE WHEN a.cohort <= STRFTIME('%Y-%m', DATE('2011-11-01', '-1 months'))\n            THEN ROUND(100.0 * SUM(a.month_number = 1) / s.cohort_size, 1) END AS m1_pct,\n       CASE WHEN a.cohort <= STRFTIME('%Y-%m', DATE('2011-11-01', '-2 months'))\n            THEN ROUND(100.0 * SUM(a.month_number = 2) / s.cohort_size, 1) END AS m2_pct,\n       CASE WHEN a.cohort <= STRFTIME('%Y-%m', DATE('2011-11-01', '-3 months'))\n            THEN ROUND(100.0 * SUM(a.month_number = 3) / s.cohort_size, 1) END AS m3_pct,\n       CASE WHEN a.cohort <= STRFTIME('%Y-%m', DATE('2011-11-01', '-6 months'))\n            THEN ROUND(100.0 * SUM(a.month_number = 6) / s.cohort_size, 1) END AS m6_pct,\n       CASE WHEN a.cohort <= STRFTIME('%Y-%m', DATE('2011-11-01', '-11 months'))\n            THEN ROUND(100.0 * SUM(a.month_number = 11) / s.cohort_size, 1) END AS m11_pct\nFROM activity a\nJOIN sizes s ON s.cohort = a.cohort\nWHERE a.cohort < '2011-12'\nGROUP BY a.cohort\nORDER BY a.cohort;", "columns": ["cohort", "cohort_size", "m1_pct", "m2_pct", "m3_pct", "m6_pct", "m11_pct"], "rows": [["2010-12", 883, 36.5, 32.3, 38.1, 36.0, 50.2], ["2011-01", 414, 21.5, 26.8, 22.9, 24.9, null], ["2011-02", 381, 18.6, 18.6, 28.3, 25.5, null], ["2011-03", 450, 14.4, 24.9, 19.6, 26.4, null], ["2011-04", 300, 21.3, 20.3, 21.0, 21.3, null], ["2011-05", 283, 19.4, 17.3, 17.3, 26.5, null], ["2011-06", 242, 17.4, 15.7, 26.4, null, null], ["2011-07", 187, 17.6, 20.3, 22.5, null, null], ["2011-08", 169, 20.1, 23.7, 24.3, null, null], ["2011-09", 297, 23.6, 30.3, null, null, null], ["2011-10", 356, 23.6, null, null, null, null], ["2011-11", 322, null, null, null, null, null]]}, {"name": "retention_curve", "section": "Retention", "title": "Average retention by months since first purchase (all cohorts, weighted)", "insight": "Across all cohorts, about a quarter of new customers order again the next month. The later rise reflects the Christmas season and the strong December 2010 cohort, which is the only one observable at month 11.", "chart": {"type": "line", "x": "month_number", "y": ["retention_pct"], "zero": "yes"}, "sql": "WITH first_month AS (\n    SELECT customer_id, SUBSTR(first_purchase, 1, 7) AS cohort FROM customers\n),\nactivity AS (\n    SELECT DISTINCT t.customer_id, f.cohort,\n           (CAST(SUBSTR(t.invoice_date, 1, 4) AS INTEGER) - CAST(SUBSTR(f.cohort, 1, 4) AS INTEGER)) * 12\n         + (CAST(SUBSTR(t.invoice_date, 6, 2) AS INTEGER) - CAST(SUBSTR(f.cohort, 6, 2) AS INTEGER)) AS month_number\n    FROM transactions t\n    JOIN first_month f ON f.customer_id = t.customer_id\n    WHERE t.invoice_date < '2011-12-01'\n),\neligible AS (\n    -- a cohort can only be measured at month N if month N is inside the data\n    SELECT n.month_number, SUM(s.cohort_size) AS customers_observable\n    FROM (SELECT DISTINCT month_number FROM activity WHERE month_number BETWEEN 1 AND 11) n\n    JOIN (SELECT cohort, COUNT(*) AS cohort_size FROM first_month GROUP BY cohort) s\n      ON (2011 - CAST(SUBSTR(s.cohort, 1, 4) AS INTEGER)) * 12 + (11 - CAST(SUBSTR(s.cohort, 6, 2) AS INTEGER)) >= n.month_number\n    GROUP BY n.month_number\n)\nSELECT a.month_number,\n       COUNT(*)                                                AS customers_active,\n       e.customers_observable,\n       ROUND(100.0 * COUNT(*) / e.customers_observable, 1)     AS retention_pct\nFROM activity a\nJOIN eligible e ON e.month_number = a.month_number\nGROUP BY a.month_number\nORDER BY a.month_number;", "columns": ["month_number", "customers_active", "customers_observable", "retention_pct"], "rows": [[1, 929, 3962, 23.4], [2, 895, 3606, 24.8], [3, 886, 3309, 26.8], [4, 878, 3140, 28.0], [5, 853, 2953, 28.9], [6, 776, 2711, 28.6], [7, 692, 2428, 28.5], [8, 652, 2128, 30.6], [9, 598, 1678, 35.6], [10, 482, 1297, 37.2], [11, 443, 883, 50.2]]}, {"name": "second_purchase", "section": "Retention", "title": "Days from first to second order (repeat customers)", "insight": "A third of repeat customers come back within 30 days, and 67% within 90 days. After 180 days a second order becomes unlikely.", "chart": {"type": "bar", "x": "days_to_second_order", "y": ["customers"]}, "sql": "WITH orders AS (\n    SELECT customer_id, invoice_no, MIN(invoice_date) AS order_date\n    FROM transactions\n    GROUP BY customer_id, invoice_no\n),\nranked AS (\n    SELECT customer_id, order_date,\n           ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date, invoice_no) AS n\n    FROM orders\n),\ngaps AS (\n    SELECT a.customer_id, JULIANDAY(b.order_date) - JULIANDAY(a.order_date) AS days\n    FROM ranked a\n    JOIN ranked b ON b.customer_id = a.customer_id AND b.n = 2\n    WHERE a.n = 1\n)\nSELECT CASE WHEN days = 0 THEN 'Same day'\n            WHEN days <= 30 THEN '1-30'\n            WHEN days <= 60 THEN '31-60'\n            WHEN days <= 90 THEN '61-90'\n            WHEN days <= 180 THEN '91-180'\n            ELSE '180+' END                                 AS days_to_second_order,\n       COUNT(*)                                             AS customers,\n       ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1)   AS share_pct\nFROM gaps\nGROUP BY days_to_second_order\nORDER BY MIN(days);", "columns": ["days_to_second_order", "customers", "share_pct"], "rows": [["Same day", 207, 7.3], ["1-30", 724, 25.7], ["31-60", 615, 21.8], ["61-90", 352, 12.5], ["91-180", 604, 21.4], ["180+", 318, 11.3]]}, {"name": "country_revenue", "section": "Markets and products", "title": "Revenue by country (top 10)", "insight": "The UK brings 82% of revenue. A handful of overseas accounts are very large: 9 Dutch customers average £31K each and 3 Irish customers £81K.", "chart": {"type": "hbar", "x": "country", "y": ["revenue"], "money": ["revenue", "revenue_per_customer"]}, "sql": "SELECT country,\n       COUNT(DISTINCT customer_id)                                         AS customers,\n       ROUND(SUM(line_revenue), 0)                                         AS revenue,\n       ROUND(100.0 * SUM(line_revenue) / (SELECT SUM(line_revenue) FROM transactions), 1) AS revenue_share_pct,\n       ROUND(SUM(line_revenue) / COUNT(DISTINCT customer_id), 0)           AS revenue_per_customer\nFROM transactions\nGROUP BY country\nORDER BY revenue DESC\nLIMIT 10;", "columns": ["country", "customers", "revenue", "revenue_share_pct", "revenue_per_customer"], "rows": [["United Kingdom", 3909, 6796137.0, 82.3, 1739.0], ["Netherlands", 9, 282162.0, 3.4, 31351.0], ["EIRE", 3, 242438.0, 2.9, 80813.0], ["Germany", 94, 203637.0, 2.5, 2166.0], ["France", 87, 182005.0, 2.2, 2092.0], ["Australia", 9, 137049.0, 1.7, 15228.0], ["Spain", 29, 51976.0, 0.6, 1792.0], ["Switzerland", 21, 51892.0, 0.6, 2471.0], ["Japan", 8, 37314.0, 0.5, 4664.0], ["Belgium", 25, 36814.0, 0.4, 1473.0]]}, {"name": "top_products", "section": "Markets and products", "title": "Top 12 products by revenue", "insight": "The Regency cakestand is the top earner at £136K, bought by 871 customers. Most top products are low-priced decorative lines sold in bulk.", "chart": {"type": "hbar", "x": "description", "y": ["revenue"], "money": ["revenue"]}, "sql": "SELECT stock_code,\n       MAX(description)               AS description,\n       SUM(quantity)                  AS units,\n       ROUND(SUM(line_revenue), 0)    AS revenue,\n       COUNT(DISTINCT customer_id)    AS customers\nFROM transactions\nGROUP BY stock_code\nORDER BY revenue DESC\nLIMIT 12;", "columns": ["stock_code", "description", "units", "revenue", "customers"], "rows": [["22423", "REGENCY CAKESTAND 3 TIER", 11818, 135975.0, 871], ["85123A", "WHITE HANGING HEART T-LIGHT HOLDER", 34174, 93882.0, 853], ["85099B", "JUMBO BAG RED RETROSPOT", 43377, 80334.0, 633], ["47566", "PARTY BUNTING", 14957, 67392.0, 707], ["84879", "ASSORTED COLOUR BIRD ORNAMENT", 35202, 56310.0, 676], ["23084", "RABBIT NIGHT LIGHT", 27087, 51114.0, 447], ["79321", "CHILLI LIGHTS", 9557, 45861.0, 204], ["22086", "PAPER CHAIN KIT 50'S CHRISTMAS", 14983, 41031.0, 610], ["21137", "BLACK RECORD COVER FRAME", 11377, 38956.0, 137], ["22197", "SMALL POPCORN HOLDER", 48938, 37044.0, 406], ["23298", "SPOTTY BUNTING", 7772, 36110.0, 573], ["23203", "JUMBO BAG VINTAGE DOILY", 18447, 35757.0, 503]]}, {"name": "data_quality", "section": "Data quality", "title": "What the cleaning step found and fixed", "insight": "Removing reversed orders matters: dropping only the 'C' cancellation invoices would leave in a single 80,995-unit paper bird order (£168K) that was cancelled the same day, which would have been the top product of the year.", "chart": {"type": "table"}, "sql": "SELECT check_name, rows_affected, action\nFROM data_quality_log;", "columns": ["check_name", "rows_affected", "action"], "rows": [["Raw invoice lines loaded", 541909, "none"], ["No customer id (guest checkout)", 135080, "excluded: cannot be tied to a customer"], ["Cancelled invoices (invoice number starts with C)", 9288, "excluded"], ["Zero or negative quantity or price (adjustments, damages)", 11805, "excluded"], ["Non-product lines (postage, fees, manual, vouchers)", 2950, "excluded"], ["Exact duplicate lines", 5268, "kept one copy"], ["Sales later reversed by a matching cancellation", 3920, "excluded"], ["Clean sales lines", 387230, "final table"]]}]};
+const charts = [];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pretty = c => c.replace(/_/g, " ").replace(/\bpct\b/i, "%").replace(/\bavg\b/i, "avg").replace(/^./, s => s.toUpperCase());
+const CUR = DATA.currency || "";
+
+function fmt(v, col, chart) {
+  if (v === null || v === undefined) return "–";
+  if (typeof v !== "number") return String(v);
+  const money = chart && chart.money && chart.money.includes(col);
+  const pct = /_pct$/i.test(col) || (chart && chart.pct && chart.pct.includes(col));
+  let s;
+  const a = Math.abs(v);
+  if (a >= 1e7 && money && CUR === "₹") s = (v / 1e7).toFixed(2) + " Cr";
+  else if (a >= 1e6) s = (v / 1e6).toFixed(a >= 1e8 ? 0 : 2) + "M";
+  else if (a >= 1e5) s = (v / 1e3).toFixed(0) + "K";
+  else if (a >= 1e4) s = (v / 1e3).toFixed(1) + "K";
+  else if (Number.isInteger(v)) s = v.toLocaleString("en-US");
+  else s = v.toLocaleString("en-US", { maximumFractionDigits: a < 10 ? 2 : 1 });
+  if (money) s = CUR + s;
+  if (pct) s = s + "%";
+  return s;
+}
+function fmtFull(v, col, chart) {
+  if (typeof v !== "number") return v === null ? "–" : String(v);
+  if (/(_id|_year|^year)$/i.test(col)) return String(v);
+  const money = chart && chart.money && chart.money.includes(col);
+  const pct = /_pct$/i.test(col) || (chart && chart.pct && chart.pct.includes(col));
+  const s = v.toLocaleString("en-US", { maximumFractionDigits: Number.isInteger(v) ? 0 : 2 });
+  return (money ? CUR : "") + s + (pct ? "%" : "");
+}
+
+function highlightSQL(sql) {
+  const kw = /\b(WITH|RECURSIVE|SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|JOIN|LEFT JOIN|INNER JOIN|ON|AS|AND|OR|NOT|IN|IS|NULL|CASE|WHEN|THEN|ELSE|END|DISTINCT|OVER|PARTITION BY|UNION ALL|UNION|DESC|ASC|BETWEEN|LIKE|CAST|ROUND|COUNT|SUM|AVG|MIN|MAX|NTILE|RANK|DENSE_RANK|ROW_NUMBER|LAG|LEAD|COALESCE|NULLIF|SUBSTR|INSTR|TRIM|REPLACE|LOWER|UPPER|LENGTH|REAL|INTEGER|TEXT|JULIANDAY|STRFTIME|DATE|PRINTF|IIF|EXISTS|FILTER)\b/g;
+  return sql.split("\n").map(line => {
+    const i = line.indexOf("--");
+    let code = i >= 0 ? line.slice(0, i) : line, cm = i >= 0 ? line.slice(i) : "";
+    code = esc(code).replace(/('[^']*')/g, '<span class="str">$1</span>');
+    code = code.replace(/(<span class="str">.*?<\/span>)|([^<]+)/g, (m, s, t) => s ? s : t.replace(kw, '<span class="kw">$1</span>'));
+    return code + (cm ? `<span class="cm">${esc(cm)}</span>` : "");
+  }).join("\n");
+}
+
+function tableHTML(p) {
+  const numCols = p.columns.map((c, i) => p.rows.some(r => typeof r[i] === "number"));
+  const head = p.columns.map((c, i) => `<th class="${numCols[i] ? "num" : ""}">${esc(pretty(c))}</th>`).join("");
+  const body = p.rows.slice(0, 200).map(r => "<tr>" + r.map((v, i) => `<td class="${numCols[i] ? "num" : ""}">${esc(fmtFull(v, p.columns[i], p.chart))}</td>`).join("") + "</tr>").join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderKPI(p) {
+  const row = p.rows[0] || [];
+  return (p.insight ? `<p class="insight">${esc(p.insight)}</p>` : "") + `<div class="kpis">${p.columns.map((c, i) => `<div class="kpi"><span class="label">${esc(pretty(c))}</span><span class="value">${esc(fmt(row[i], c, p.chart))}</span></div>`).join("")}</div>`;
+}
+
+function panelHTML(p, idx) {
+  const full = p.chart.w === "full" || p.chart.type === "table" ? " full" : "";
+  const hasChart = !["table"].includes(p.chart.type);
+  const ys = p.chart.y || [];
+  const legend = ys.length > 1 ? `<div class="legend">${ys.map((y, i) => `<span><i style="background:var(--s${i + 1})"></i>${esc(pretty(y))}</span>`).join("")}</div>` : "";
+  return `<article class="panel${full}" id="${esc(p.name)}">
+    <div class="panel-head"><h3>${esc(p.title)}</h3>
+      <div class="tabs" role="tablist">
+        ${hasChart ? `<button role="tab" aria-selected="true" data-v="chart">Chart</button>` : ""}
+        <button role="tab" aria-selected="${hasChart ? "false" : "true"}" data-v="table">Table</button>
+        <button role="tab" aria-selected="false" data-v="sql">SQL</button>
+      </div></div>
+    ${p.insight ? `<p class="insight">${esc(p.insight)}</p>` : ""}
+    ${hasChart ? `<div class="view" data-view="chart">${legend}<div class="chart-box" style="height:${chartHeight(p)}px"><canvas id="c${idx}" role="img" aria-label="${esc(p.title)}"></canvas></div></div>` : ""}
+    <div class="view table-box" data-view="table" ${hasChart ? "hidden" : ""}>${tableHTML(p)}</div>
+    <div class="view sql-box" data-view="sql" hidden><pre><code>${highlightSQL(p.sql)}</code></pre></div>
+  </article>`;
+}
+function chartHeight(p) {
+  if (p.chart.type === "hbar") return Math.max(180, p.rows.length * (p.chart.y.length > 1 ? 34 : 28) + 40);
+  return 280;
+}
+
+function build() {
+  const app = document.getElementById("app");
+  const d = DATA.dataset || {};
+  let html = `<header>
+    <span class="eyebrow">SQL portfolio project · ${esc(DATA.author || "")}</span>
+    <h1>${esc(DATA.title)}</h1>
+    <p class="sub">${esc(DATA.subtitle || "")}</p>
+    <div class="meta">
+      ${d.name ? `<span>Data: <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>${d.rows ? " · " + esc(d.rows) : ""}</span>` : ""}
+      ${DATA.repo ? `<span>Code: <a href="${esc(DATA.repo)}" target="_blank" rel="noopener">GitHub repository</a></span>` : ""}
+    </div>
+    ${DATA.stack ? `<div class="chips">${DATA.stack.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>` : ""}
+  </header>`;
+  const sections = [];
+  DATA.panels.forEach((p, i) => {
+    const name = p.section || "Analysis";
+    let s = sections.find(x => x.name === name);
+    if (!s) sections.push(s = { name, items: [] });
+    s.items.push([p, i]);
+  });
+  for (const s of sections) {
+    const kpis = s.items.filter(([p]) => p.chart.type === "kpi");
+    const rest = s.items.filter(([p]) => p.chart.type !== "kpi");
+    html += `<section><h2>${esc(s.name)}</h2>`;
+    html += kpis.map(([p]) => renderKPI(p)).join("");
+    // a section with an odd number of half-width panels lets the last one span the row
+    const half = rest.filter(([p]) => !(p.chart.w === "full" || p.chart.type === "table"));
+    if (half.length % 2 === 1) half[half.length - 1][0].chart.w = "full";
+    if (rest.length) html += `<div class="grid">${rest.map(([p, i]) => panelHTML(p, i)).join("")}</div>`;
+    html += `</section>`;
+  }
+  html += `<footer>Every number on this page comes from the SQL shown in each panel, run against SQLite. Built by ${esc(DATA.author || "")}.</footer>`;
+  app.innerHTML = html;
+  app.addEventListener("click", e => {
+    const b = e.target.closest(".tabs button"); if (!b) return;
+    const panel = b.closest(".panel");
+    panel.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b ? "true" : "false"));
+    panel.querySelectorAll(".view").forEach(v => v.hidden = v.dataset.view !== b.dataset.v);
+  });
+  drawCharts();
+}
+
+function drawCharts() {
+  if (!window.Chart) return;
+  charts.splice(0).forEach(c => c.destroy());
+  const ink2 = css("--ink-2"), muted = css("--muted"), grid = css("--grid"), axis = css("--axis"), surface = css("--surface");
+  const series = [css("--s1"), css("--s2"), css("--s3"), css("--s4")];
+  Chart.defaults.font.family = css("--font-ui");
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = muted;
+  DATA.panels.forEach((p, idx) => {
+    const el = document.getElementById("c" + idx); if (!el) return;
+    const t = p.chart.type, xi = p.columns.indexOf(p.chart.x);
+    const labels = p.rows.map(r => r[xi]);
+    const horiz = t === "hbar";
+    const datasets = (p.chart.y || []).map((y, k) => {
+      const yi = p.columns.indexOf(y);
+      const base = { label: pretty(y), data: p.rows.map(r => r[yi]), backgroundColor: series[k], borderColor: series[k] };
+      if (t === "line") return { ...base, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, pointBorderColor: surface, pointBorderWidth: 2, tension: 0, fill: (p.chart.y.length === 1) ? { target: "origin", above: series[k] + "1a" } : false };
+      return { ...base, borderWidth: 0, borderRadius: 4, borderSkipped: "start", maxBarThickness: 22, categoryPercentage: 0.8, barPercentage: 0.9 };
+    });
+    const valueAxis = { grid: { color: grid, drawTicks: false }, border: { display: false }, ticks: { color: muted, padding: 6, maxRotation: 0, autoSkipPadding: 14, callback: v => fmt(v, p.chart.y[0], p.chart) }, beginAtZero: t !== "line" || p.chart.zero === "yes" };
+    const catAxis = { grid: { display: false }, border: { color: axis }, ticks: { color: ink2, autoSkip: !horiz, autoSkipPadding: 10, maxRotation: 0, callback: function (v) { const l = String(this.getLabelForValue(v)); return l.length > 26 ? l.slice(0, 25) + "…" : l; } } };
+    charts.push(new Chart(el, {
+      type: t === "line" ? "line" : "bar",
+      data: { labels, datasets },
+      options: {
+        indexAxis: horiz ? "y" : "x", responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { display: false },
+          tooltip: { backgroundColor: css("--ink"), titleColor: surface, bodyColor: surface, padding: 10, cornerRadius: 6, displayColors: p.chart.y.length > 1,
+            callbacks: { label: c => ` ${c.dataset.label}: ${fmtFull(c.parsed[horiz ? "x" : "y"], p.chart.y[c.datasetIndex], p.chart)}` } } },
+        scales: horiz ? { x: valueAxis, y: catAxis } : { x: catAxis, y: valueAxis }
+      }
+    }));
+  });
+}
+
+build();
+const mq = window.matchMedia("(prefers-color-scheme: dark)");
+mq.addEventListener && mq.addEventListener("change", drawCharts);
+new MutationObserver(drawCharts).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
+</body>
+</html>

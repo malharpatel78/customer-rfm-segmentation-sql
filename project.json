@@ -1,0 +1,11 @@
+{
+  "title": "Customer RFM Segmentation",
+  "subtitle": "Who the best customers of a UK online gift retailer are, who is slipping away, and how well each month's new customers come back: RFM scoring, segments, cohort retention and revenue concentration, all in SQL.",
+  "author": "Malhar Patel",
+  "repo": "https://github.com/malharpatel78/customer-rfm-segmentation-sql",
+  "currency": "£",
+  "stack": ["SQLite", "RFM with NTILE", "Cohort retention", "CTEs", "Window functions", "Chart.js"],
+  "database": "retail.db",
+  "dataset": {"name": "Online Retail (UCI Machine Learning Repository)", "url": "https://archive.ics.uci.edu/dataset/352/online+retail", "rows": "541,909 invoice lines, Dec 2010 to Dec 2011"},
+  "raw_tables": [{"table": "retail_raw", "file": "online_retail.csv"}]
+}

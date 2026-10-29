@@ -1,0 +1,11 @@
+country,customers,revenue,revenue_share_pct,revenue_per_customer
+United Kingdom,3909,6796137.0,82.3,1739.0
+Netherlands,9,282162.0,3.4,31351.0
+EIRE,3,242438.0,2.9,80813.0
+Germany,94,203637.0,2.5,2166.0
+France,87,182005.0,2.2,2092.0
+Australia,9,137049.0,1.7,15228.0
+Spain,29,51976.0,0.6,1792.0
+Switzerland,21,51892.0,0.6,2471.0
+Japan,8,37314.0,0.5,4664.0
+Belgium,25,36814.0,0.4,1473.0
